@@ -47,15 +47,8 @@ Run `STAGE=production utils/registerParams.py` and enter the appropriate values.
 Deploy to AWS:
 
 ```bash
-sam deploy --guided --capabilities CAPABILITY_IAM
+sam deploy --stack-name PagerDutyToJira --capabilities CAPABILITY_IAM --s3-bucket BUCKET_TO_HOLD_LAMBDAS
 ```
-
-You will be prompted for the following:
-
-* **Stack Name**: Name of CloudFormation stack (e.g., `pagerduty-to-jira`).
-* **AWS Region**: AWS Region (e.g., `us-east-1`).
-* **Confirm changes before deploy**: Select yes to review and confirm a change set.
-* **Save arguments to samconfig.toml**: Set to yes to save these values for future deployments.
 
 ## View Logs
 
