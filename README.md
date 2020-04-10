@@ -1,13 +1,15 @@
 # PagerDuty to Jira
 
-This project integrates PagerDuty with Jira using the PagerDuty v2 Webhook API, AWS EventBridge, AWS Lambda and AWS Dynamo. It is intended to provide more robust and customizable integration than is possible using the native Jira Cloud integration. Additionally, many integrations can be configured between PagerDuty and Jira Cloud. The native integration only supports a 1:1 mapping between PagerDity and Jira Cloud instances.
+This project integrates PagerDuty with Jira using the PagerDuty v2 Webhook API, AWS EventBridge, AWS Lambda and AWS Dynamo. It is intended to provide more robust and customizable integration than is possible using the native Jira Cloud integration. Additionally, many integrations can be configured between PagerDuty and Jira Cloud using this application. The native integration only supports a 1:1 mapping between PagerDity and Jira Cloud instances.
 
-- pd2jira - Lambda code
+The project has the following structure:
 - events - Test events
-- tests - Unit tests
+- pd2jira - Lambda code
+- tests - Unit tests (not started)
 - utils - script to configure AWS Parameter Store with appropriate values.
 - template.yaml - CloudFormation template
 
+Once configured, Services in PagerDuty that use the AWS EventBridge integration will be created as issues in Jira under the specified project. Acknowledgements, notes, escalations and resolution will all come through as comments. The integration by design will not resolve an issue in Jira until it is resolved in PagerDuty.
 
 ## Installation
 
@@ -88,6 +90,7 @@ aws cloudformation delete-stack --stack-name pagerduty-to-jira
 ```
 
 ## Requirements
+
 * [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 * [Python 3.x](https://www.python.org/downloads/)
 * [Docker](https://hub.docker.com/search/?type=edition&offering=community)
