@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  pagerduty-to-jira
+
+Globals:
+  Function:
+    Timeout: 15
+
+Resources:
+  PagerDutyToJiraFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: pd2jira_function
+      Handler: pd2jira/app.lambda_handler
+      Runtime: python3.7
+
+  PagerDutyEventRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      EventBusName: aws.partner/pagerduty.com/rhythmic-PagerDuty-Rhythmic
+      Pattern:
+        detail-type:
+          - PagerDuty Webhook
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: 
+            Fn::GetAtt: 
+              - "PagerDutyToJiraFunction"
+              - "Arn"
+          Id: "PagerDutyToJiraFunction"
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "PagerDutyToJiraFunction"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        Fn::GetAtt: 
+          - "PagerDutyEventRule"
+          - "Arn"
+Outputs:
+  PagerDutyToJiraFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt PagerDutyToJiraFunction.Arn
+  PagerDutyToJiraFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt PagerDutyToJiraFunctionRole.Arn

@@ -1,0 +1,4 @@
+boto3
+PyInquirer
+validators
+prompt-toolkit
