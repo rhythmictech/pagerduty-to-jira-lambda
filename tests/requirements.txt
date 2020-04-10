@@ -4,3 +4,6 @@ six
 regex
 pytest
 pytest-mock
+ipython
+jira
+boto3
