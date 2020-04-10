@@ -94,3 +94,10 @@ aws cloudformation delete-stack --stack-name pagerduty-to-jira
 * [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 * [Python 3.x](https://www.python.org/downloads/)
 * [Docker](https://hub.docker.com/search/?type=edition&offering=community)
+
+## TODO
+Features we want to add soon:
+
+* Assign Jira issues in response to acknowledgements.
+* Extract alert info and add to Jira issue description.
+* Set issue Organization field (in Jira Service Desk) by using the Business Service feature in PagerDuty.
