@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  pagerduty-to-jira
+
+Globals:
+  Function:
+    Timeout: 15
+    Runtime: python3.7
+    Timeout: 180 # timeout for a given lambda function execution
+
+Parameters:
+  Stage:
+    Type: String
+    Description: Stage to deploy
+    Default: dev
+
+Resources:
+  PagerDutyToJiraFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: pd2jira_function
+      Handler: pd2jira/app.lambda_handler
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:DeleteItem'
+                - 'dynamodb:GetItem'
+                - 'dynamodb:PutItem'
+                - 'dynamodb:UpdateItem'
+              Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${IssueMappingTable}"
+            - Effect: Allow
+              Action:
+                - 'ssm:GetParametersByPath'
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/pagerduty-to-jira/${Stage}"
+
+  PagerDutyEventRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      EventBusName: aws.partner/pagerduty.com/rhythmic-PagerDuty-Rhythmic
+      EventPattern:
+        detail-type:
+          - PagerDuty Webhook
+      State: "ENABLED"
+      Targets: 
+        - Arn: 
+            Fn::GetAtt: 
+              - "PagerDutyToJiraFunction"
+              - "Arn"
+          Id: "PagerDutyToJiraFunction"
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "PagerDutyToJiraFunction"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        Fn::GetAtt: 
+          - "PagerDutyEventRule"
+          - "Arn"
+
+  IssueMappingTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: incidentid
+        Type: String 
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      SSESpecification:
+        SSEEnabled: True
+      TableName: !Sub "PagerDutyToJira-IssueMapping-${Stage}"
+
+  DynamoDBEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_ENDPOINT"
+      Type: String
+      Value: https://dynamodb.us-east-1.amazonaws.com
+
+  DynamoDBRegionParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_REGION"
+      Type: String
+      Value: !Ref AWS::Region
+
+  DynamoDBTableParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_TABLE"
+      Type: String
+      Value: !Ref IssueMappingTable
+
+Outputs:
+  PagerDutyToJiraFunction:
+    Description: "Lambda ARN"
+    Value: !GetAtt PagerDutyToJiraFunction.Arn
+  PagerDutyToJiraFunctionIamRole:
+    Description: "Lambda IAM Role"
+    Value: !GetAtt PagerDutyToJiraFunctionRole.Arn
