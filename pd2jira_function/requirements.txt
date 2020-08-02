@@ -3,5 +3,8 @@ pprint
 six
 regex
 ipython
-jira
+jira>=3.0a2
+PyJWT
+requests_jwt
 boto3
+pdpyras
