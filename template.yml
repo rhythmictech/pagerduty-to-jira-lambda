@@ -51,7 +51,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: pd2jira_function
-      Handler: pd2jira/jira_to_od.lambda_handler
+      Handler: pd2jira/jira_event.lambda_handler
       Environment:
         Variables:
           STAGE: !Ref Stage
@@ -60,7 +60,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref Api
-            Path: /jira2pd/{action}
+            Path: /jira2pd/
             Method: POST
       Policies:
         - AWSLambdaExecute
@@ -71,6 +71,7 @@ Resources:
                 - 'dynamodb:DeleteItem'
                 - 'dynamodb:GetItem'
                 - 'dynamodb:PutItem'
+                - 'dynamodb:Query'
                 - 'dynamodb:UpdateItem'
               Resource: 
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${IssueMappingTable}"
@@ -105,6 +106,7 @@ Resources:
                 - 'dynamodb:DeleteItem'
                 - 'dynamodb:GetItem'
                 - 'dynamodb:PutItem'
+                - 'dynamodb:Query'
                 - 'dynamodb:UpdateItem'
               Resource: 
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${IssueMappingTable}"
