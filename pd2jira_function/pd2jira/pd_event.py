@@ -487,7 +487,15 @@ def lambda_handler(event, context):
     logger.debug("PagerDuty event received: {}".format(
         event))
 
-    for pd_event in event['messages']:
+    # deal with whether we are calling lambda directly (for debugging) or via api gateway
+    messages = []
+    if 'body' in event.keys():
+        payload = json.loads(event['body'])
+        messages = payload['messages']
+    else:
+        messages = event['messages']
+
+    for pd_event in messages:
         switcher = {
             'incident.acknowledge': lambda: state_change('acknowledge', pd_event),
             'incident.annotate': lambda: annotate(pd_event),
