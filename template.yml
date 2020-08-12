@@ -5,9 +5,9 @@ Description: >
 
 Globals:
   Function:
-    Timeout: 15
+    MemorySize: 256
     Runtime: python3.7
-    Timeout: 180 # timeout for a given lambda function execution
+    Timeout: 15
 
 Parameters:
   Stage:
@@ -16,14 +16,52 @@ Parameters:
     Default: dev
 
 Resources:
-  PagerDutyToJiraFunction:
+
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors: "'*'"
+
+  EscalateToPagerDutyFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: pd2jira_function
-      Handler: pd2jira/app.lambda_handler
+      Handler: pd2jira/escalate_to_pd.lambda_handler
       Environment:
         Variables:
           STAGE: !Ref Stage
+      Events:
+        Root:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /escalateToPD
+            Method: POST
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'ssm:GetParametersByPath'
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/pagerduty-to-jira/${Stage}"
+
+  JiraToPagerDutyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: pd2jira_function
+      Handler: pd2jira/jira_event.lambda_handler
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+      Events:
+        Root:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /jira2pd/
+            Method: POST
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'
@@ -33,40 +71,58 @@ Resources:
                 - 'dynamodb:DeleteItem'
                 - 'dynamodb:GetItem'
                 - 'dynamodb:PutItem'
+                - 'dynamodb:Query'
                 - 'dynamodb:UpdateItem'
-              Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${IssueMappingTable}"
+              Resource: 
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${IssueMappingTable}"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UserMappingTable}"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${OrganizationMappingTable}"
             - Effect: Allow
               Action:
                 - 'ssm:GetParametersByPath'
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/pagerduty-to-jira/${Stage}"
 
-  PagerDutyEventRule: 
-    Type: AWS::Events::Rule
-    Properties: 
-      EventBusName: aws.partner/pagerduty.com/rhythmic-PagerDuty-Rhythmic
-      EventPattern:
-        detail-type:
-          - PagerDuty Webhook
-      State: "ENABLED"
-      Targets: 
-        - Arn: 
-            Fn::GetAtt: 
-              - "PagerDutyToJiraFunction"
-              - "Arn"
-          Id: "PagerDutyToJiraFunction"
+  PagerDutyToJiraFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: pd2jira_function
+      Handler: pd2jira/pd_event.lambda_handler
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+      Events:
+        Root:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /pd2jira
+            Method: POST
+        KeepWarmScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:DeleteItem'
+                - 'dynamodb:GetItem'
+                - 'dynamodb:PutItem'
+                - 'dynamodb:Query'
+                - 'dynamodb:UpdateItem'
+              Resource: 
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${IssueMappingTable}"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UserMappingTable}"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${OrganizationMappingTable}"
+            - Effect: Allow
+              Action:
+                - 'ssm:GetParametersByPath'
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/pagerduty-to-jira/${Stage}"
 
-  PermissionForEventsToInvokeLambda: 
-    Type: AWS::Lambda::Permission
-    Properties: 
-      FunctionName: 
-        Ref: "PagerDutyToJiraFunction"
-      Action: "lambda:InvokeFunction"
-      Principal: "events.amazonaws.com"
-      SourceArn: 
-        Fn::GetAtt: 
-          - "PagerDutyEventRule"
-          - "Arn"
-
+  # SAM doesn't support attribute definitions yet, which kind of sucks. But our use cases are so simple that it
+  # doesn't really matter that we won't have well-typed fields.
   IssueMappingTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -79,6 +135,32 @@ Resources:
       SSESpecification:
         SSEEnabled: True
       TableName: !Sub "PagerDutyToJira-IssueMapping-${Stage}"
+
+  UserMappingTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: pd_email
+        Type: String 
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      SSESpecification:
+        SSEEnabled: True
+      TableName: !Sub "PagerDutyToJira-UserMapping-${Stage}"
+
+  OrganizationMappingTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: pd_service
+        Type: String 
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      SSESpecification:
+        SSEEnabled: True
+      TableName: !Sub "PagerDutyToJira-OrganizationMapping-${Stage}"
 
   DynamoDBEndpointParameter:
     Type: AWS::SSM::Parameter
@@ -94,12 +176,26 @@ Resources:
       Type: String
       Value: !Ref AWS::Region
 
-  DynamoDBTableParameter:
+  DynamoDBIssueTableParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_TABLE"
+      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_ISSUE_TABLE"
       Type: String
       Value: !Ref IssueMappingTable
+
+  DynamoDBUserTableParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_USER_TABLE"
+      Type: String
+      Value: !Ref UserMappingTable
+
+  DynamoDBOrganizationTableParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/pagerduty-to-jira/${Stage}/DYNAMODB_ORGANIZATION_TABLE"
+      Type: String
+      Value: !Ref OrganizationMappingTable
 
 Outputs:
   PagerDutyToJiraFunction:
