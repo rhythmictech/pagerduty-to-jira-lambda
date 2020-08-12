@@ -221,7 +221,7 @@ def get_issue_by_incident(incidentid):
         logger.debug("Incident mapping found: {}".format(json.dumps(item)))
         return item['issuekey']
     except KeyError:
-        pass
+        return None
 
 
 def handle_comment_on_incident(incident_id, message):
@@ -351,6 +351,10 @@ def trigger(pd_event):
     """
 
     incident_id = pd_event['incident']['id']
+
+    if get_issue_by_incident(incident_id) != None:
+        logger.info("Duplicate trigger received for incident {}".format(incident_id))
+        return
 
     description = """
 h3. Incident Summary
