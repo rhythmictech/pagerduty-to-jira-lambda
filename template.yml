@@ -6,7 +6,7 @@ Description: >
 Globals:
   Function:
     MemorySize: 256
-    Runtime: python3.7
+    Runtime: python3.9
     Timeout: 15
 
 Parameters:
@@ -97,10 +97,6 @@ Resources:
             RestApiId: !Ref Api
             Path: /pd2jira
             Method: POST
-        KeepWarmScheduledEvent:
-          Type: Schedule
-          Properties:
-            Schedule: rate(5 minutes)
       Policies:
         - AWSLambdaExecute
         - Version: '2012-10-17'

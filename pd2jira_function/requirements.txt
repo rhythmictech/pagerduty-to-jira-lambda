@@ -1,10 +1,9 @@
 requests
-pprint
 six
 regex
 ipython
-jira>=3.0a2
-PyJWT
-requests_jwt
+jira
+pyjwt
+cryptography
 boto3
 pdpyras
